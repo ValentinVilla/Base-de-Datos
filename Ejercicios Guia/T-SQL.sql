@@ -368,7 +368,8 @@ GO
     -Precio_generado (Precio que se compone a través de sus componentes)
     -Precio_facturado (precio del producto)
 */
-select * from Diferencias
+select *
+from Diferencias
 
 DROP table diferencias
 drop procedure ej8
@@ -391,23 +392,28 @@ RETURNS decimal(12,2)
 AS
 BEGIN
     DECLARE @precio_producto decimal(12,2), @comp char(8), @cantidad decimal(12,2)
-        if (select count(*) from composicion where comp_producto = @prod) = 0
-        select @precio_producto = (select prod_precio from producto where prod_codigo = @prod)
+    if (select count(*)
+    from composicion
+    where comp_producto = @prod) = 0
+        select @precio_producto = (select prod_precio
+        from producto
+        where prod_codigo = @prod)
         else
         BEGIN
-            DECLARE compo cursor for select comp_componente, comp_cantidad from composicion
-                                     JOIN producto on prod_codigo = comp_componente
-                                     WHERE comp_producto = @prod
-            OPEN compo
-            FETCH NEXT FROM compo INTO @comp, @cantidad
-            select @precio_producto = 0
-            WHILE @@FETCH_STATUS = 0
+        DECLARE compo cursor for select comp_componente, comp_cantidad
+        from composicion
+            JOIN producto on prod_codigo = comp_componente
+        WHERE comp_producto = @prod
+        OPEN compo
+        FETCH NEXT FROM compo INTO @comp, @cantidad
+        select @precio_producto = 0
+        WHILE @@FETCH_STATUS = 0
             BEGIN
-                SELECT @precio_producto = @precio_producto + @cantidad * dbo.precio_compuesto(@comp)
-                FETCH compo into @comp, @cantidad
-            END
-            CLOSE compo
-            DEALLOCATE compo
+            SELECT @precio_producto = @precio_producto + @cantidad * dbo.precio_compuesto(@comp)
+            FETCH compo into @comp, @cantidad
+        END
+        CLOSE compo
+        DEALLOCATE compo
     END
     RETURN @precio_producto
 END
@@ -453,52 +459,57 @@ FOR INSERT, DELETE
 AS
 BEGIN
     DECLARE @compo char(8), @cantidad decimal(12,2), @depo char(2)
-     if (select count(*) from inserted) > 0
+    if (select count(*)
+    from inserted) > 0
         BEGIN
-        DECLARE c1 CURSOR FOR SELECT comp_componente, comp_cantidad*item_cantidad 
-                              FROM inserted JOIN composicion ON item_producto = comp_producto 
+        DECLARE c1 CURSOR FOR SELECT comp_componente, comp_cantidad*item_cantidad
+        FROM inserted JOIN composicion ON item_producto = comp_producto
         OPEN c1
         FETCH c1 INTO @compo, @cantidad
         WHILE @@FETCH_STATUS = 0
         BEGIN
-            SELECT @depo = (SELECT TOP 1 stoc_deposito FROM stock 
-                            WHERE stoc_producto = @compo 
-                            ORDER BY stoc_cantidad DESC)
+            SELECT @depo = (SELECT TOP 1
+                    stoc_deposito
+                FROM stock
+                WHERE stoc_producto = @compo
+                ORDER BY stoc_cantidad DESC)
             if @depo is null
                 BEGIN
-                    print 'No hay stock del producto'
-                    close c1
-                    deallocate c1
-                    ROLLBACK
-                END
+                print 'No hay stock del producto'
+                close c1
+                deallocate c1
+                ROLLBACK
+            END
             else 
                 UPDATE stock SET stoc_Cantidad = stoc_cantidad - @cantidad WHERE stoc_producto = @compo AND stoc_deposito = @depo
             FETCH c1 INTO @compo, @cantidad
         END
-        END
+    END
      ELSE
         BEGIN
-        DECLARE c1 CURSOR FOR SELECT comp_componente, comp_cantidad*item_cantidad 
-                              FROM deleted JOIN composicion ON item_producto = comp_producto 
+        DECLARE c1 CURSOR FOR SELECT comp_componente, comp_cantidad*item_cantidad
+        FROM deleted JOIN composicion ON item_producto = comp_producto
         OPEN c1
         FETCH c1 INTO @compo, @cantidad
         WHILE @@FETCH_STATUS = 0
         BEGIN
-            SELECT @depo = (SELECT TOP 1 stoc_deposito FROM stock 
-                            WHERE stoc_producto = @compo 
-                            ORDER BY stoc_cantidad DESC)
+            SELECT @depo = (SELECT TOP 1
+                    stoc_deposito
+                FROM stock
+                WHERE stoc_producto = @compo
+                ORDER BY stoc_cantidad DESC)
             if @depo is null
                 BEGIN
-                    print 'No hay stock del producto'
-                    close c1
-                    deallocate c1
-                    ROLLBACK
-                END
+                print 'No hay stock del producto'
+                close c1
+                deallocate c1
+                ROLLBACK
+            END
             else 
                 UPDATE stock SET stoc_Cantidad = stoc_cantidad + @cantidad WHERE stoc_producto = @compo AND stoc_deposito = @depo
             FETCH c1 INTO @compo, @cantidad
         END
-        END
+    END
     CLOSE c1
     DEALLOCATE c1
 END
@@ -513,10 +524,12 @@ CREATE TRIGGER ej10 ON producto
 INSTEAD OF DELETE
 AS
 BEGIN
-    if (select count(*) from stock join deleted on stoc_producto = prod_codigo) > 0 
+    if (select count(*)
+    from stock join deleted on stoc_producto = prod_codigo) > 0 
         print 'No se puede borrar porque tiene stock'  
     else 
-        delete producto where prod_codigo in (select prod_codigo from deleted)
+        delete producto where prod_codigo in (select prod_codigo
+    from deleted)
 END
 GO
 
@@ -537,18 +550,22 @@ BEGIN
 
     SET @cantidad = 0
 
-    IF NOT EXISTS(SELECT * FROM Empleado WHERE @empleado = empl_jefe)
+    IF NOT EXISTS(SELECT *
+    FROM Empleado
+    WHERE @empleado = empl_jefe)
     BEGIN
         RETURN @cantidad
     END
 
     -- cantidad de empleados que tiene directamente a su cargo
-    SET @cantidad = (SELECT COUNT(*) FROM Empleado WHERE @empleado = empl_jefe AND empl_codigo > empl_jefe)
+    SET @cantidad = (SELECT COUNT(*)
+    FROM Empleado
+    WHERE @empleado = empl_jefe AND empl_codigo > empl_jefe)
 
     -- cantidad de empleados que tiene indirectamente a su cargo
-    DECLARE cursorEmp CURSOR FOR SELECT empl_jefe, empl_codigo 
-                                 FROM Empleado 
-                                 WHERE @empleado = empl_jefe
+    DECLARE cursorEmp CURSOR FOR SELECT empl_jefe, empl_codigo
+    FROM Empleado
+    WHERE @empleado = empl_jefe
     OPEN cursorEmp
     FETCH NEXT FROM cursorEmp into @emp_jefe, @emp_codigo
     WHILE @@FETCH_STATUS = 0
@@ -573,27 +590,27 @@ CREATE FUNCTION dbo.Ejercicio12Func(@producto CHAR(8),@Componente char(8))
 RETURNS int
 AS
 BEGIN
-	IF @producto = @Componente 
+    IF @producto = @Componente 
 		RETURN 1
 	ELSE
 		BEGIN
-		DECLARE @ProdAux char(8)
-		DECLARE cursor_componente CURSOR FOR SELECT comp_componente
-										FROM Composicion
-										WHERE comp_producto = @Componente
-		OPEN cursor_componente
-		FETCH NEXT from cursor_componente INTO @ProdAux
-		WHILE @@FETCH_STATUS = 0
+        DECLARE @ProdAux char(8)
+        DECLARE cursor_componente CURSOR FOR SELECT comp_componente
+        FROM Composicion
+        WHERE comp_producto = @Componente
+        OPEN cursor_componente
+        FETCH NEXT from cursor_componente INTO @ProdAux
+        WHILE @@FETCH_STATUS = 0
 			BEGIN
-				IF dbo.Ejercicio12Func(@producto,@prodaux) = 1
-					RETURN 1 
-				FETCH NEXT from cursor_componente INTO @ProdAux
-			END
-		CLOSE cursor_componente
-		DEALLOCATE cursor_componente
-		RETURN 0
-		END
-RETURN 0
+            IF dbo.Ejercicio12Func(@producto,@prodaux) = 1
+					RETURN 1
+            FETCH NEXT from cursor_componente INTO @ProdAux
+        END
+        CLOSE cursor_componente
+        DEALLOCATE cursor_componente
+        RETURN 0
+    END
+    RETURN 0
 END
 GO
 
@@ -602,49 +619,58 @@ ON Composicion
 INSTEAD OF INSERT, UPDATE
 AS
 BEGIN
-    IF ((SELECT COUNT(*) FROM DELETED) = 0)
-		IF ((SELECT COUNT(*) FROM INSERTED WHERE dbo.Ejercicio12Func(comp_producto,comp_componente) = 1) > 0)  -- ACA ME FIJO SI ALGUNO NO CUMPLE LA REGLA
+    IF ((SELECT COUNT(*)
+    FROM DELETED) = 0)
+		IF ((SELECT COUNT(*)
+    FROM INSERTED
+    WHERE dbo.Ejercicio12Func(comp_producto,comp_componente) = 1) > 0)  -- ACA ME FIJO SI ALGUNO NO CUMPLE LA REGLA
 			PRINT 'No puede ingresarse un producto compuesto por si mismo'
 		ELSE
-			INSERT Composicion SELECT * FROM Inserted  WHERE dbo.Ejercicio12Func(comp_producto,comp_componente) = 0  -- ACA METO LOS QUE CUMPLEN LA REGLA
+			INSERT Composicion
+    SELECT *
+    FROM Inserted
+    WHERE dbo.Ejercicio12Func(comp_producto,comp_componente) = 0  -- ACA METO LOS QUE CUMPLEN LA REGLA
 	ELSE
 -- se crea otro cursor igual para deleted
 		BEGIN
-		DECLARE @productodel char(8)
-		DECLARE @componentedel char(8)
-		DECLARE @cantidaddel decimal (12,2)
-		DECLARE cur_productosdel CURSOR FOR SELECT comp_cantidad, comp_producto, comp_componente FROM deleted
-		DECLARE @producto char(8)
-		DECLARE @componente char(8)
-		DECLARE @cantidad decimal (12,2)
-		DECLARE cur_productos CURSOR FOR SELECT comp_cantidad, comp_producto, comp_componente FROM inserted
-		OPEN cur_productosdel
-		OPEN cur_productos
-		FETCH NEXT FROM cur_productosdel INTO @cantidaddel, @productodel, @componentedel
-		FETCH NEXT FROM cur_productos INTO @cantidad, @producto, @componente
--- avanzan juntos
-		WHILE @@FETCH_STATUS = 0
+        DECLARE @productodel char(8)
+        DECLARE @componentedel char(8)
+        DECLARE @cantidaddel decimal (12,2)
+        DECLARE cur_productosdel CURSOR FOR SELECT comp_cantidad, comp_producto, comp_componente
+        FROM deleted
+        DECLARE @producto char(8)
+        DECLARE @componente char(8)
+        DECLARE @cantidad decimal (12,2)
+        DECLARE cur_productos CURSOR FOR SELECT comp_cantidad, comp_producto, comp_componente
+        FROM inserted
+        OPEN cur_productosdel
+        OPEN cur_productos
+        FETCH NEXT FROM cur_productosdel INTO @cantidaddel, @productodel, @componentedel
+        FETCH NEXT FROM cur_productos INTO @cantidad, @producto, @componente
+        -- avanzan juntos
+        WHILE @@FETCH_STATUS = 0
 		BEGIN
--- me fijo si cumple la condicion 
-			IF dbo.Ejercicio12Fun(@producto,@componente) = 1
+            -- me fijo si cumple la condicion 
+            IF dbo.Ejercicio12Fun(@producto,@componente) = 1
 				PRINT 'No puede moficarse un producto compuesto por si mismo'
 			ELSE
 				BEGIN
--- hago el update borrando y cargando
--- borro el viejo
-				DELETE Composicion WHERE comp_producto = @productodel and comp_componente = @componentedel
--- inserto el nuevo
-				insert composicion values(@producto,@componente,@cantidad)
-				END
--- avanzan los dos cursores juntos
-			FETCH NEXT FROM cur_productosdel INTO @cantidaddel, @productodel, @componentedel
-			FETCH NEXT FROM cur_productos INTO @cantidad, @producto, @componente
-		END
-		CLOSE cur_productosdel
-		DEALLOCATE cur_productosdel
-		CLOSE cur_productos
-		DEALLOCATE cur_productos
-	END
+                -- hago el update borrando y cargando
+                -- borro el viejo
+                DELETE Composicion WHERE comp_producto = @productodel and comp_componente = @componentedel
+                -- inserto el nuevo
+                insert composicion
+                values(@producto, @componente, @cantidad)
+            END
+            -- avanzan los dos cursores juntos
+            FETCH NEXT FROM cur_productosdel INTO @cantidaddel, @productodel, @componentedel
+            FETCH NEXT FROM cur_productos INTO @cantidad, @producto, @componente
+        END
+        CLOSE cur_productosdel
+        DEALLOCATE cur_productosdel
+        CLOSE cur_productos
+        DEALLOCATE cur_productos
+    END
 END
 GO
 
@@ -667,26 +693,120 @@ BEGIN
     DECLARE @tipo char, @sucursal  char(4), @numero char(8)
 
     DECLARE cursorProd CURSOR FOR SELECT item_tipo, item_sucursal, item_numero, item_producto,
-                                   item_precio, item_cantidad FROM Inserted
+        item_precio, item_cantidad
+    FROM Inserted
     OPEN cursorProd
     FETCH NEXT FROM cursorProd INTO @tipo, @sucursal, @numero, @producto, @cantidad, @precio
     WHILE @@FETCH_STATUS = 0
     BEGIN
         IF(@PRECIO < dbo.precio_compuesto (@producto) / 2)
             BEGIN
-                DELETE FROM Item_factura WHERE item_tipo+item_sucursal+item_numero = @tipo+@sucursal+@numero
-                DELETE FROM Factura WHERE fact_tipo+fact_sucursal+fact_numero = @tipo+@sucursal+@numero
-                PRINT 'El precio no puede ser menor a la mitad'
-            END
+            DELETE FROM Item_factura WHERE item_tipo+item_sucursal+item_numero = @tipo+@sucursal+@numero
+            DELETE FROM Factura WHERE fact_tipo+fact_sucursal+fact_numero = @tipo+@sucursal+@numero
+            PRINT 'El precio no puede ser menor a la mitad'
+        END
         ELSE
             BEGIN
-                INSERT item_factura VALUES(@tipo, @sucursal, @numero, @producto, @cantidad, @precio)
-                PRINT 'FECHA: ' +@fecha + ' CLIENTE: '+ @CLIENTE + 'PRECIO: ' + @PRECIO + 'PRODUCTO: ' + @PRODUCTO
-            END
+            INSERT item_factura
+            VALUES(@tipo, @sucursal, @numero, @producto, @cantidad, @precio)
+            PRINT 'FECHA: ' +@fecha + ' CLIENTE: '+ @CLIENTE + 'PRECIO: ' + @PRECIO + 'PRODUCTO: ' + @PRODUCTO
+        END
         FETCH NEXT FROM cursorProd INTO @tipo, @sucursal, @numero, @producto, @precio, @cantidad
     END
     CLOSE cursorProd
     DEALLOCATE cursosProd
 END
 GO
+
+/*
+16. Desarrolle el/los elementos de base de datos necesarios para que ante una venta
+    automaticamante se descuenten del stock los articulos vendidos. Se descontaran
+    del deposito que mas producto poseea y se supone que el stock se almacena
+    tanto de productos simples como compuestos (si se acaba el stock de los
+    compuestos no se arman combos)
+    En caso que no alcance el stock de un deposito se descontara del siguiente y asi
+    hasta agotar los depositos posibles. En ultima instancia se dejara stock negativo
+    en el ultimo deposito que se desconto.
+*/
+
+CREATE TRIGGER EJ16
+ON ITEM_FACTURA
+AFTER INSERT, DELETE
+AS
+BEGIN
+    DECLARE @PRODUCTO CHAR(8), @CANTIDAD DECIMAL(12,2)
+    IF (SELECT COUNT(*)
+    FROM INSERTED) > 0
+    	DECLARE ITEMS CURSOR 
+        	FOR
+        	SELECT item_producto, item_cantidad
+    FROM inserted
+    ELSE 
+    	DECLARE ITEMS CURSOR 
+        	FOR
+        	SELECT item_producto, item_cantidad*(-1)
+    FROM deleted
+    OPEN ITEMS
+    FETCH ITEMS INTO @PRODUCTO, @CANTIDAD
+    WHILE @@FETCH_STATUS=0
+	BEGIN
+        DECLARE @DEPO CHAR(2), @CANT_DEPO DECIMAL(12,2)
+        DECLARE @ULTIMO_DEPO CHAR(2)
+        DECLARE @CANT_DESCONTAR DECIMAL(12,2)
+
+        DECLARE DEPOS CURSOR
+	    	FOR --DEPOSITOS DONDE TIENE STOCK Y SU CANTIDAD
+    		SELECT stoc_deposito, stoc_cantidad
+        FROM STOCK
+        WHERE stoc_producto = @PRODUCTO
+        ORDER BY stoc_cantidad DESC
+        OPEN DEPOS
+        FETCH DEPOS INTO @DEPO, @CANT_DEPO
+        SET @ULTIMO_DEPO = @DEPO
+        SET @CANT_DESCONTAR=@CANTIDAD
+        WHILE @@FETCH_STATUS=0 AND (@CANT_DESCONTAR != 0)
+			BEGIN
+            IF (@CANT_DEPO >= @CANT_DESCONTAR) -- ENTRA EN UN SOLO DEPOSITO
+					BEGIN
+                UPDATE STOCK SET stoc_cantidad = (@CANT_DEPO-@CANT_DESCONTAR) WHERE stoc_producto=@PRODUCTO AND @DEPO=stoc_deposito
+                SET @CANT_DESCONTAR = 0
+                BREAK
+            END
+					ELSE -- NO ENTRA EN UN SOLO DEPOSITO, EL STOCK PASA A 0 Y BUSCO OTRO DEPOSITO 
+					BEGIN
+                UPDATE STOCK SET stoc_cantidad =0 WHERE stoc_producto=@PRODUCTO AND @DEPO=stoc_deposito
+                FETCH DEPOS INTO @DEPO, @CANT_DEPO
+                SET @ULTIMO_DEPO = @DEPO
+                SET @CANT_DESCONTAR = @CANT_DESCONTAR - @CANT_DEPO
+            END
+        END
+        --ES EL ULTIMO DEPOSITO, PUEDE SER NEGATIVO
+        IF @ULTIMO_DEPO IS NULL
+                BEGIN
+            PRINT 'NO HAY STOCK DEL PRODUCTO'
+            ROLLBACK
+        END
+        IF (@CANT_DESCONTAR !=0) -- SALE DEL WHILE Y ENTRA ACA
+				BEGIN
+            UPDATE STOCK SET stoc_cantidad = (@CANT_DEPO-@CANT_DESCONTAR) 
+                    WHERE stoc_producto=@PRODUCTO AND stoc_deposito=@ULTIMO_DEPO
+        END
+        CLOSE DEPOS
+        DEALLOCATE DEPOS
+    END
+    FETCH ITEMS INTO @PRODUCTO, @CANTIDAD
+    END
+	CLOSE ITEMS
+	DEALLOCATE ITEMS  
+END
+		
+/*
+19. Cree el/los objetos de base de datos necesarios para que se cumpla la siguiente
+    regla de negocio automáticamente “Ningún jefe puede tener menos de 5 años de
+    antigüedad y tampoco puede tener más del 50% del personal a su cargo
+    (contando directos e indirectos) a excepción del gerente general”. Se sabe que en
+    la actualidad la regla se cumple y existe un único gerente general.
+*/
+
+
 
