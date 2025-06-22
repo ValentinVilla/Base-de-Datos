@@ -649,10 +649,44 @@ END
 GO
 
 /*
-14. Agregar el/los objetos necesarios para que si un cliente compra un producto
-    compuesto a un precio menor que la suma de los precios de sus componentes
-    que imprima la fecha, que cliente, que productos y a qué precio se realizó la
-    compra. No se deberá permitir que dicho precio sea menor a la mitad de la suma
-    de los componentes.
+14. Agregar el/los objetos necesarios para que: 
+    si un cliente compra un producto compuesto a un precio menor que la suma de los 
+    precios de sus componentes ==> imprima la fecha, que cliente, que productos y a
+    qué precio se realizó la compra.
+    No se deberá permitir que dicho precio sea menor a la mitad de la suma de los componentes.
 */
+CREATE TRIGGER ej14
+ON Item_Factura
+INSTEAD OF INSERT
+AS
+BEGIN
+    DECLARE @producto char(8)
+    DECLARE @precio decimal(12,2)
+    DECLARE @cantidad decimal(12,2)
+    DECLARE @fecha smalldatetime, @cliente char(6)
+    DECLARE @tipo char, @sucursal  char(4), @numero char(8)
+
+    DECLARE cursorProd CURSOR FOR SELECT item_tipo, item_sucursal, item_numero, item_producto,
+                                   item_precio, item_cantidad FROM Inserted
+    OPEN cursorProd
+    FETCH NEXT FROM cursorProd INTO @tipo, @sucursal, @numero, @producto, @cantidad, @precio
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        IF(@PRECIO < dbo.precio_compuesto (@producto) / 2)
+            BEGIN
+                DELETE FROM Item_factura WHERE item_tipo+item_sucursal+item_numero = @tipo+@sucursal+@numero
+                DELETE FROM Factura WHERE fact_tipo+fact_sucursal+fact_numero = @tipo+@sucursal+@numero
+                PRINT 'El precio no puede ser menor a la mitad'
+            END
+        ELSE
+            BEGIN
+                INSERT item_factura VALUES(@tipo, @sucursal, @numero, @producto, @cantidad, @precio)
+                PRINT 'FECHA: ' +@fecha + ' CLIENTE: '+ @CLIENTE + 'PRECIO: ' + @PRECIO + 'PRODUCTO: ' + @PRODUCTO
+            END
+        FETCH NEXT FROM cursorProd INTO @tipo, @sucursal, @numero, @producto, @precio, @cantidad
+    END
+    CLOSE cursorProd
+    DEALLOCATE cursosProd
+END
+GO
 
