@@ -161,3 +161,39 @@ BEGIN
     DEALLOCATE items
 END
 GO
+
+/*
+Realizar el o los objetos de base de datos necesarios para que dado un código
+de producto y una fecha y devuelva 
+la mayor cantidad de días consecutivos a
+partir de esa fecha que el producto tuvo al menos la venta de una unidad en el
+día, el sistema de ventas on line está habilitado 24-7 por lo que se deben evaluar
+todos los días incluyendo domingos y feriados.
+*/
+CREATE FUNCTION ejParcial4(@prod CHAR(8), @fecha SMALLDATETIME)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @dias_consecutivos INT = 0
+    DECLARE @fecha_actual SMALLDATETIME
+
+    SET @fecha_actual = @fecha
+
+    WHILE EXISTS (
+        SELECT 1
+        FROM Item_Factura
+        JOIN Factura ON fact_tipo + fact_sucursal + fact_numero = item_tipo + item_sucursal + item_numero
+        WHERE item_producto = @prod
+          AND CONVERT(DATE, fact_fecha) = CONVERT(DATE, @fecha_actual)
+
+    )
+    BEGIN
+        SET @dias_consecutivos = @dias_consecutivos + 1
+        SET @fecha_actual = DATEADD(DAY, 1, @fecha_actual)
+    END
+
+    RETURN @dias_consecutivos
+END
+GO
+
+
