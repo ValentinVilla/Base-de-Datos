@@ -115,3 +115,49 @@ BEGIN
     CLOSE items
     DEALLOCATE items
 END
+GO
+
+/*
+La compañía desea implementar una política para incrementar el consumo de
+ciertos productos. Se pide crear el/los objetos necesarios para que se imprima
+un cupón con la leyenda "Ud. accederá a un 5% de descuento del total de su
+próxima factura" a los clientes que realicen compras superiores a los $5000 y
+que entre los productos comprados haya adquirido algún producto de los
+siguientes rubros:
+· PILAS
+· PASTILLAS
+· ARTICULOS DE TOCADOR
+*/
+
+CREATE TRIGGER ejPArcial3
+ON Item_Factura
+AFTER INSERT
+AS
+BEGIN
+    DECLARE @cliente_id INT
+    DECLARE @total_factura DECIMAL(12,2)
+    DECLARE @producto_rubro VARCHAR(50)
+
+    DECLARE items CURSOR FOR
+    SELECT clie_codigo, SUM(item_precio * item_cantidad) AS total_factura
+    FROM inserted 
+    JOIN Factura ON fact_tipo+fact_sucursal+fact_numero = item_tipo+item_sucursal+item_numero
+    JOIN Cliente ON fact_cliente = clie_codigo
+    JOIN Producto ON item_producto = prod_codigo
+    WHERE prod_rubro IN ('PILAS', 'PASTILLAS', 'ARTICULOS DE TOCADOR')
+    GROUP BY clie_codigo
+    HAVING SUM(item_precio * item_cantidad) > 5000
+
+    OPEN items
+    FETCH NEXT FROM items INTO @cliente_id, @total_factura
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        PRINT 'Ud. accederá a un 5% de descuento del total de su próxima factura'
+        FETCH NEXT FROM items INTO @cliente_id, @total_factura
+    END
+
+    CLOSE items
+    DEALLOCATE items
+END
+GO
