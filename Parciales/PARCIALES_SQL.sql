@@ -33,3 +33,59 @@ WHERE ISNULL(s1.stoc_cantidad, 0) = 0  AND (SELECT COUNT(*)
                                             AND s3.stoc_deposito <> s1.stoc_deposito
                                             ) >= 1
 ORDER BY p.prod_codigo 
+
+
+/*
+La empresa está muy comprometida con el desarrollo sustentable, y como
+consecuencia de ello propone cambiar los envases de sus productos por
+envases reciclados. Si bien entiende la importancia de este cambio, también es
+consciente de los costos que esto conlleva por lo cual se realizará de manera
+paulatina.
+
+Por tal motivo se solicita un listado con los 5 productos más vendidos y los 5
+productos menos vendidos durante el 2012. Comparar la cantidad vendida de
+cada uno de estos productos con la cantidad vendida del año anterior e indicar
+el string 'Más ventas' o 'Menos ventas', según corresponda. Además indicar el
+envase.
+
+A) Producto
+B) Comparación año anterior
+C) Detalle de Envase
+*/
+-- top 5 mas vendidos
+SELECT TOP 5 prod_codigo,
+             prod_detalle,
+             CASE WHEN (
+                        SELECT SUM(i2.item_cantidad) FROM Item_Factura i2
+                        JOIN Factura f2 ON i2.item_tipo + i2.item_sucursal + i2.item_numero = f2.fact_tipo + f2.fact_sucursal + f2.fact_numero
+                        WHERE i2.item_producto = i1.item_producto 
+                        AND YEAR(f2.fact_fecha) = 2011
+                  ) < SUM(i1.item_cantidad) THEN 'Más ventas'
+                  ELSE 'Menos ventas' END AS comparacion,
+             prod_envase
+FROM Producto
+JOIN Item_Factura i1 ON prod_codigo = i1.item_producto
+JOIN Factura f1 ON i1.item_tipo + i1.item_sucursal + i1.item_numero = f1.fact_tipo + f1.fact_sucursal + f1.fact_numero
+WHERE YEAR(f1.fact_fecha) = 2012
+GROUP BY prod_codigo, prod_detalle, prod_envase, i1.item_producto
+ORDER BY ISNULL(SUM(i1.item_cantidad), 0) DESC
+
+-- top 5 menos vendidos (solo cambia el ORDER BY)
+SELECT TOP 5 prod_codigo,
+             prod_detalle,
+             CASE WHEN (
+                        SELECT SUM(i2.item_cantidad) FROM Item_Factura i2
+                        JOIN Factura f2 ON i2.item_tipo + i2.item_sucursal + i2.item_numero = f2.fact_tipo + f2.fact_sucursal + f2.fact_numero
+                        WHERE i2.item_producto = i1.item_producto 
+                        AND YEAR(f2.fact_fecha) = 2011
+                  ) < SUM(i1.item_cantidad) THEN 'Más ventas'
+                  ELSE 'Menos ventas' END AS comparacion,
+             prod_envase
+FROM Producto
+JOIN Item_Factura i1 ON prod_codigo = i1.item_producto
+JOIN Factura f1 ON i1.item_tipo + i1.item_sucursal + i1.item_numero = f1.fact_tipo + f1.fact_sucursal + f1.fact_numero
+WHERE YEAR(f1.fact_fecha) = 2012
+GROUP BY prod_codigo, prod_detalle, prod_envase, i1.item_producto
+ORDER BY ISNULL(SUM(i1.item_cantidad), 0) ASC , prod_detalle
+
+

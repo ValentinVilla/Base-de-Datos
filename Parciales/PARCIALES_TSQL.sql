@@ -10,7 +10,7 @@ Aquellos productos nuevos, o que no tuvieron ventas en meses anteriores no
 debe considerar esta regla ya que no hay precio de referencia.
 */
 
-CREATE TRIGGER ejParcial
+CREATE TRIGGER ejParcial1
 ON Item_Factura
 INSTEAD OF INSERT
 AS
@@ -73,3 +73,45 @@ BEGIN
     DEALLOCATE items
 END
 GO
+
+/*
+25-06-2024
+
+La compañia cumple años y decidió a repartir algunas sorpresas entre sus
+clientes. Se pide crear el/los objetos necesarios para que se imprima un cupón
+con la leyenda "Recuerde solicitar su regalo sorpresa en su próxima compra" a
+los clientes que, entre los productos comprados, hayan adquirido algún producto
+de los siguientes rubros: PILAS y PASTILLAS y tengan un limite crediticio menor
+a $ 15000.
+*/
+
+CREATE TRIGGER ejParcial2
+ON Item_Factura
+AFTER INSERT
+AS
+BEGIN
+    DECLARE @cliente_id INT
+    DECLARE @producto_rubro VARCHAR(50)
+    DECLARE @limite_credito DECIMAL(12,2)
+
+    DECLARE items CURSOR FOR
+    SELECT DISTINCT C.clie_codigo, P.prod_rubro, C.clie_limite_credito
+    FROM inserted
+    JOIN Producto P ON item_producto = P.prod_codigo
+    JOIN Factura F ON F.fact_tipo + F.fact_sucursal + F.fact_numero = item_tipo + item_sucursal + item_numero
+    JOIN Cliente C ON F.fact_cliente = C.clie_codigo
+    WHERE P.prod_rubro IN ('PILAS', 'PASTILLAS')
+      AND C.clie_limite_credito < 15000
+
+    OPEN items
+    FETCH NEXT FROM items INTO @cliente_id, @producto_rubro, @limite_credito
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        PRINT 'Recuerde solicitar su regalo sorpresa en su próxima compra'
+        FETCH NEXT FROM items INTO @cliente_id, @producto_rubro, @limite_credito
+    END
+
+    CLOSE items
+    DEALLOCATE items
+END
