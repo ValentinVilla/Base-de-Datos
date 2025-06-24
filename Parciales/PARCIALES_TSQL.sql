@@ -196,4 +196,45 @@ BEGIN
 END
 GO
 
+-- solucion que mandaron al wpp
+CREATE FUNCTION consecutivos(@prod nvarchar(8),@fecha DATETIME)
+RETURNS numeric(12,2)
+AS
+BEGIN
+	DECLARE @dias numeric(12,2) = 0
+	DECLARE @salida numeric(12,2) = 0
+	DECLARE @fecha_actual DATETIME = @fecha 
+	DECLARE @fecha_cursor DATETIME
+	DECLARE cursorP CURSOR FOR
+	SELECT fact_fecha FROM Factura JOIN Item_Factura ON
+	fact_numero + fact_sucursal + fact_tipo = item_numero + item_sucursal + item_tipo
+	AND @prod = item_producto AND item_cantidad > 0 AND fact_fecha > @fecha
+	ORDER BY fact_fecha ASC
+	OPEN cursoP
+	FETCH cursoP INTO @fecha_cursor
+    WHILE @@FETCH_STATUS = @salida
+		BEGIN
+			IF(DATEDIFF(DAY,@fecha_actual,@fecha_cursor) > 0) --VENTAS EN EL MISMO DIA
+				BEGIN
+					IF(DATEDIFF(DAY,@fecha_actual,@fecha_cursor) = 1) --ANALIZA SI ES EL SIGUIENTE DIA
+						BEGIN
+							SET @dias += 1
+							FETCH cursoP INTO @fecha_cursor
+						END
+					ELSE
+						BEGIN
+							SET @salida = 1
+						END
+				END
+			ELSE
+				BEGIN
+					FETCH cursoP INTO @fecha_cursor
+				END
+		END
+	CLOSE cursorP
+	DEALLOCATE cursorP
+	RETURN @dias
+END
+GO
+
 
