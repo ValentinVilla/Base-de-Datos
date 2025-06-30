@@ -354,3 +354,206 @@ ORDER BY
     c1.clie_codigo ASC;
 
 -- Devuelve cero filas, pero creo que esta bien ya que no hay clientes con mas de 3 vendedores distintos en 2012
+
+
+/*
+Realizar una consulta SQL que permita saber si un cliente compro un
+producto en todos los meses del 2012.
+
+Además, mostrar para el 2012:
+
+1. El cliente
+2. La razón social del cliente
+3. El producto comprado
+4. El nombre del producto
+5. Cantidad de productos distintos comprados por el
+cliente.
+6. Cantidad de productos con composición comprados
+por el cliente.
+
+El resultado deberá ser ordenado poniendo primero aquellos clientes
+que compraron más de 10 productos distintos en el 2012.
+
+Nota: No se permiten select en el from, es decir, select ... from (select ... ) as T, ...
+*/
+
+SELECT
+  c1.clie_codigo,
+  c1.clie_razon_social,
+  i1.item_producto,
+  p1.prod_detalle,
+  (SELECT COUNT(DISTINCT i2.item_producto) 
+   FROM Item_Factura i2
+   JOIN Factura f2 ON i2.item_tipo+i2.item_sucursal+i2.item_numero=f2.fact_tipo+f2.fact_sucursal+f2.fact_numero
+   WHERE f2.fact_cliente = c1.clie_codigo 
+   AND YEAR(fact_fecha) = 2012
+   ) AS cant_prod_distintos,
+
+  (SELECT COUNT(DISTINCT i3.item_producto)
+   FROM Item_Factura i3
+   JOIN Factura f3 ON i3.item_tipo+i3.item_sucursal+i3.item_numero=f3.fact_tipo+f3.fact_sucursal+f3.fact_numero
+   WHERE f3.fact_cliente = c1.clie_codigo 
+   AND YEAR(fact_fecha) = 2012
+   AND EXISTS (SELECT 1 FROM Composicion c WHERE c.comp_producto = i3.item_producto)
+   ) AS cant_prod_con_comp
+
+FROM Cliente c1
+JOIN Factura f1 ON f1.fact_cliente = c1.clie_codigo
+JOIN Item_Factura i1 ON i1.item_tipo+i1.item_sucursal+i1.item_numero=f1.fact_tipo+f1.fact_sucursal+f1.fact_numero
+JOIN Producto p1 ON p1.prod_codigo = i1.item_producto
+WHERE YEAR(fact_fecha) = 2012
+GROUP BY c1.clie_codigo,
+         c1.clie_razon_social,
+         i1.item_producto,
+         p1.prod_detalle
+HAVING COUNT(DISTINCT MONTH(f1.fact_fecha)) = 12
+ORDER BY (SELECT COUNT(DISTINCT i4.item_producto) 
+          FROM Item_Factura i4
+          JOIN Factura f4 ON i4.item_tipo+i4.item_sucursal+i4.item_numero=f4.fact_tipo+f4.fact_sucursal+f4.fact_numero
+          WHERE f4.fact_cliente = c1.clie_codigo
+          AND YEAR(fact_fecha) = 2012) DESC
+
+-- NOTA: Si esta consulta devuelve vacía, es porque ningún cliente compró
+-- un mismo producto en todos los meses del 2012, pero la lógica es correcta.
+
+/*
+1. Realizar una consulta SQL que permita saber los clientes que
+compraron todos los rubros disponibles del sistema en el 2012.
+
+De estos clientes mostrar, siempre para el 2012:
+
+1. El código del cliente
+2. Código de producto que en cantidades más compro.
+3. El nombre del producto del punto 3.
+4. Cantidad de productos distintos comprados por el
+cliente.
+5. Cantidad de productos con composición comprados
+por el cliente.
+
+El resultado deberá ser ordenado por razón social del cliente
+alfabéticamente primero y luego, los clientes que compraron entre un
+20 % y 30% del total facturado en el 2012 primero, luego, los restantes.
+
+Nota: No se permiten select en el from, es decir, select ... from (select ... ) as T,
+*/
+
+SELECT
+    c.clie_codigo,
+
+    (SELECT TOP 1 i2.item_producto FROM Item_Factura i2
+     JOIN Factura f2 ON i2.item_tipo+i2.item_sucursal+i2.item_numero=f2.fact_tipo+f2.fact_sucursal+f2.fact_numero
+     WHERE c.clie_codigo = f2.fact_cliente
+     AND YEAR(fact_fecha) = 2012
+     GROUP BY i2.item_producto
+     ORDER BY SUM(i2.item_cantidad) DESC) AS prod_que_mas_compro,
+
+    (SELECT TOP 1 p2.prod_detalle FROM Item_Factura i2
+     JOIN Factura f2 ON i2.item_tipo+i2.item_sucursal+i2.item_numero=f2.fact_tipo+f2.fact_sucursal+f2.fact_numero
+     JOIN Producto p2 ON i2.item_producto = p2.prod_codigo
+     WHERE c.clie_codigo = f2.fact_cliente
+     AND YEAR(fact_fecha) = 2012
+     GROUP BY i2.item_producto, p2.prod_detalle
+     ORDER BY SUM(i2.item_cantidad) DESC) AS nombre_prod_que_mas_compro,
+
+    (SELECT COUNT(DISTINCT i3.item_producto) 
+     FROM Item_Factura i3
+     JOIN Factura f3 ON i3.item_tipo+i3.item_sucursal+i3.item_numero=f3.fact_tipo+f3.fact_sucursal+f3.fact_numero
+     WHERE f3.fact_cliente = c.clie_codigo 
+     AND YEAR(fact_fecha) = 2012
+     ) AS cant_prod_distintos,
+
+     (SELECT COUNT(DISTINCT i4.item_producto)
+      FROM Item_Factura i4
+      JOIN Factura f4 ON i4.item_tipo+i4.item_sucursal+i4.item_numero=f4.fact_tipo+f4.fact_sucursal+f4.fact_numero
+      WHERE f4.fact_cliente = c.clie_codigo 
+      AND YEAR(fact_fecha) = 2012
+      AND EXISTS (SELECT 1 FROM Composicion CP WHERE CP.comp_producto = i4.item_producto)
+      ) AS cant_prod_con_comp
+
+FROM Cliente c
+WHERE ( SELECT COUNT(DISTINCT P1.prod_rubro)
+        FROM Factura F1
+        JOIN Item_Factura I1 ON F1.fact_tipo+F1.fact_sucursal+F1.fact_numero=I1.item_tipo+I1.item_sucursal+I1.item_numero
+        JOIN Producto P1 ON P1.prod_codigo = I1.item_producto
+        WHERE F1.fact_cliente = c.clie_codigo
+        AND YEAR(F1.fact_fecha) = 2012) = ( SELECT COUNT(*) FROM Rubro )
+
+ORDER BY
+      CASE
+        WHEN ( SELECT SUM(I5.item_cantidad * I5.item_precio)         
+                 FROM  Factura       F5
+                 JOIN  Item_Factura  I5 ON F5.fact_tipo     = I5.item_tipo
+                                        AND F5.fact_sucursal = I5.item_sucursal
+                                        AND F5.fact_numero   = I5.item_numero
+                 WHERE F5.fact_cliente   = c.clie_codigo
+                   AND YEAR(F5.fact_fecha) = 2012 )
+             BETWEEN
+             (  SELECT 0.20 * SUM(I6.item_cantidad * I6.item_precio)  
+                 FROM  Factura       F6
+                 JOIN  Item_Factura  I6 ON F6.fact_tipo     = I6.item_tipo
+                                        AND F6.fact_sucursal = I6.item_sucursal
+                                        AND F6.fact_numero   = I6.item_numero
+                 WHERE YEAR(F6.fact_fecha) = 2012 )
+             AND
+             (  SELECT 0.30 * SUM(I7.item_cantidad * I7.item_precio) 
+                 FROM  Factura       F7
+                 JOIN  Item_Factura  I7 ON F7.fact_tipo     = I7.item_tipo
+                                        AND F7.fact_sucursal = I7.item_sucursal
+                                        AND F7.fact_numero   = I7.item_numero
+                 WHERE YEAR(F7.fact_fecha) = 2012 )
+        THEN 0  ELSE 1   END,
+         c.clie_razon_social   
+
+-- Ninguno compra los 31 rubros entonces devuelve vacia
+
+/*
+1. Realizar una consulta SQL que muestre aquellos productos que tengan
+3 componentes a nivel producto y cuyos componentes tengan 2 rubros
+distintos.
+
+De estos productos mostrar:
+
+1-El código de producto.
+2-El nombre del producto.
+3-La cantidad de veces que fueron vendidos sus
+componentes en el 2012.
+4-Monto total vendido del producto.
+
+El resultado deberá ser ordenado por cantidad de facturas del 2012 en
+las cuales se vendieron los componentes.
+
+Nota: No se permiten select en el from, es decir, select ... from (select ... ) as T, ...
+*/
+
+SELECT
+    p.prod_codigo,
+    p.prod_detalle,
+    (SELECT COUNT(*) FROM Item_Factura i
+     JOIN Factura f ON i.item_tipo + i.item_sucursal + i.item_numero = f.fact_tipo + f.fact_sucursal + f.fact_numero
+     WHERE YEAR(fact_fecha) = 2012
+     AND i.item_producto IN (SELECT comp_componente FROM Composicion WHERE comp_producto = p.prod_codigo )
+    ) AS cant_veces_vendidas_comp,
+    (SELECT SUM(i2.item_cantidad * i2.item_precio)
+     FROM Item_Factura i2
+     JOIN Factura f2 ON i2.item_tipo + i2.item_sucursal + i2.item_numero = f2.fact_tipo + f2.fact_sucursal + f2.fact_numero
+     WHERE i2.item_producto = p.prod_codigo
+     AND YEAR(f2.fact_fecha) = 2012
+    ) AS monto_total_vendido
+FROM Producto p
+WHERE (SELECT COUNT(*) FROM Composicion c WHERE c.comp_producto = p.prod_codigo) = 3
+AND (SELECT COUNT(DISTINCT p2.prod_rubro)
+     FROM Composicion c2
+     JOIN Producto p2 ON c2.comp_componente = p2.prod_codigo
+     WHERE c2.comp_producto = p.prod_codigo
+    ) = 2
+ORDER BY
+      (SELECT COUNT(DISTINCT f3.fact_tipo + f3.fact_sucursal + f3.fact_numero)
+     FROM Factura f3
+     JOIN Item_Factura i3 ON f3.fact_tipo + f3.fact_sucursal + f3.fact_numero = i3.item_tipo + i3.item_sucursal + i3.item_numero
+     WHERE YEAR(f3.fact_fecha) = 2012
+       AND i3.item_producto IN (
+           SELECT c3.comp_componente
+           FROM Composicion c3
+           WHERE c3.comp_producto = p.prod_codigo
+       )
+    ) DESC
